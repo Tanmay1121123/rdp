@@ -1,0 +1,33 @@
+name: RDP with LocalXpose
+
+on: workflow_dispatch
+
+jobs:
+  rdp:
+    runs-on: windows-latest
+    steps:
+      - name: Set random password
+        id: pass
+        run: |
+          $chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+          $pass = -join ((1..12) | ForEach-Object { $chars[(Get-Random -Maximum $chars.Length)] })
+          net user runneradmin $pass
+          echo "RDP_PASSWORD=$pass" | Out-File -FilePath $env:GITHUB_ENV -Append
+          echo "::add-mask::$pass"
+
+      - name: Download LocalXpose
+        run: |
+          Invoke-WebRequest -Uri https://localxpose.io/downloads/localxpose_windows_amd64.zip -OutFile lx.zip
+          Expand-Archive lx.zip -DestinationPath .
+          ./localxpose.exe authtoken ${{ secrets.LOCALXPOSE_AUTH_TOKEN }}
+          Start-Process ./localxpose.exe -ArgumentList "tunnel --protocol tcp --port 3389" -NoNewWindow
+
+      - name: Show RDP Info
+        run: |
+          Start-Sleep -Seconds 10
+          echo "===================================="
+          echo "Check LocalXpose dashboard for tunnel address:"
+          echo "https://dashboard.localxpose.io"
+          echo "Username: runneradmin"
+          echo "Password: $env:RDP_PASSWORD"
+          echo "===================================="
